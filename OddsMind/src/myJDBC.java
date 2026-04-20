@@ -1,24 +1,18 @@
+// Database connection class for OddsMinds
+// Based on slides (JDBC slide 50)
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
-import io.github.cdimascio.dotenv.Dotenv;
 
 public class myJDBC {
-    private static String clean(String s) {
-        if (s == null) return null;
-        return s.trim().replace("\"", "");
-    }
 
+    // database connection details
+    static final String DATABASE_URL = "jdbc:mysql://localhost:3306/oddsmind";
+    static final String USERNAME = "root";
+    static final String PASSWORD = "";// removed for the git commit 
+
+    // get a connection to the database
     public static Connection getConnection() throws SQLException {
-        Dotenv dotenv = Dotenv.load();
-
-        String url = clean(dotenv.get("SQL_URL"));
-        String user = clean(dotenv.get("SQL_USERNAME"));
-        String pass = clean(dotenv.get("SQL_PASSWORD"));
-
-        // Helpful debug (remove later)
-        System.out.println("ENV URL=[" + url + "]");
-
-        return DriverManager.getConnection(url, user, pass);
+        return DriverManager.getConnection( DATABASE_URL, USERNAME, PASSWORD );
     }
 }
