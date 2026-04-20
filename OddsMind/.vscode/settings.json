@@ -1,9 +1,0 @@
-{
-    "java.project.sourcePaths": ["src"],
-    "java.project.outputPath": "bin",
-    "java.project.referencedLibraries": [
-        "lib/**/*.jar",
-        "/Users/ryanmulcahy/Downloads/dotenv-java-3.0.0.jar"
-    ],
-    "java.debug.settings.onBuildFailureProceed": true
-}
