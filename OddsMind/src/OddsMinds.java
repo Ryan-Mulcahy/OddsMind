@@ -132,9 +132,9 @@ public class OddsMinds extends JFrame {
         }
     }
 
-    
+
     // STYLE HELPER METHODS
-    
+
     private void styleButton( JButton button ) {
         button.setBackground( LADBROKES_RED );
         button.setForeground( LADBROKES_WHITE );
@@ -164,9 +164,9 @@ public class OddsMinds extends JFrame {
         button.setMaximumSize( new Dimension( 300, 50 ) );
     }
 
-    
+
     // WELCOME SCREEN
-    
+
     private void buildWelcomePanel() {
         welcomePanel = new JPanel();
         welcomePanel.setLayout( new BoxLayout( welcomePanel, BoxLayout.Y_AXIS ) );
@@ -227,9 +227,9 @@ public class OddsMinds extends JFrame {
         );
     }
 
-    
+
     // SHOW SCREENS
-    
+
     private void showWelcomeScreen() {
         mainPanel.removeAll();
         mainPanel.add( welcomePanel, BorderLayout.CENTER );
@@ -237,10 +237,10 @@ public class OddsMinds extends JFrame {
         mainPanel.repaint();
     }
 
-    
+
     // PLACE BET SCREEN - Customer facing, guided form
     // No table shown - just like walking up to the counter
-    
+
     private void showPlaceBetScreen() {
         mainPanel.removeAll();
 
@@ -531,9 +531,9 @@ public class OddsMinds extends JFrame {
         mainPanel.repaint();
     }
 
-    
+
     // STAFF LOGIN - gates Customers, Bets view, Settlements
-    
+
     private void handleStaffLogin() {
         // JTextField and JPasswordField for login (from lecture slides 42-43)
         JTextField usernameField = new JTextField();
@@ -563,9 +563,9 @@ public class OddsMinds extends JFrame {
         }
     }
 
-    
+
     // STAFF DASHBOARD - shows after login
-    
+
     private void showStaffDashboard() {
         try {
             currentTable = "bets";
@@ -580,13 +580,13 @@ public class OddsMinds extends JFrame {
         showStaffTableScreen( "All Bets" );
     }
 
-    
+
     // STAFF TABLE SCREEN - Customers / Bets / Settlements
-    
+
     private void showStaffTableScreen( String title ) {
         mainPanel.removeAll();
 
-        //  TOP PANEL - navigation bar 
+        //  TOP PANEL - navigation bar
         JPanel topPanel = new JPanel( new BorderLayout() );
         topPanel.setBackground( LADBROKES_RED );
         topPanel.setBorder( BorderFactory.createEmptyBorder( 5, 5, 5, 5 ) );
@@ -712,7 +712,7 @@ public class OddsMinds extends JFrame {
             }
         );
 
-        //  CENTRE - JTable with JScrollPane 
+        //  CENTRE - JTable with JScrollPane
         resultTable = new JTable( tableModel );
         resultTable.setBackground( LADBROKES_WHITE );
         resultTable.setGridColor( new Color( 200, 200, 200 ) );
@@ -724,7 +724,7 @@ public class OddsMinds extends JFrame {
         sorter = new TableRowSorter< TableModel >( tableModel );
         resultTable.setRowSorter( sorter );
 
-        //  BOTTOM PANEL 
+        //  BOTTOM PANEL
         JPanel bottomPanel = new JPanel();
         bottomPanel.setLayout( new GridLayout( 2, 1 ) );
         bottomPanel.setBackground( LADBROKES_LIGHT_GREY );
@@ -783,11 +783,22 @@ public class OddsMinds extends JFrame {
             );
         }
         else if ( currentTable.equals( "bets" ) ) {
-            // staff can only view and delete bets, not add (bets come from customer)
+            // staff can update and delete bets
+            JButton updateButton = new JButton( "Update Bet" );
             JButton deleteButton = new JButton( "Delete Bet" );
+            styleSmallButton( updateButton );
             styleSmallButton( deleteButton );
+            crudBox.add( updateButton );
+            crudBox.add( Box.createHorizontalStrut( 5 ) );
             crudBox.add( deleteButton );
 
+            updateButton.addActionListener(
+                new ActionListener() {
+                    public void actionPerformed( ActionEvent event ) {
+                        handleUpdateBet();
+                    }
+                }
+            );
             deleteButton.addActionListener(
                 new ActionListener() {
                     public void actionPerformed( ActionEvent event ) {
@@ -821,7 +832,7 @@ public class OddsMinds extends JFrame {
             );
         }
         else if ( currentTable.equals( "aml" ) ) {
-            // AML Flags view - staff can verify unverified customers
+            // AML Flags view - staff can verify or remove verification
             JButton verifyButton = new JButton( "Verify Customer" );
             JButton removeVerButton = new JButton( "Remove Verification" );
             styleSmallButton( verifyButton );
@@ -857,7 +868,7 @@ public class OddsMinds extends JFrame {
             BorderLayout.CENTER );
         mainPanel.add( bottomPanel, BorderLayout.SOUTH );
 
-        //  FILTER - ActionListener (from  slide 53) 
+        //  FILTER - ActionListener (from  slide 53)
         filterButton.addActionListener(
             new ActionListener() {
                 public void actionPerformed( ActionEvent e ) {
@@ -884,9 +895,9 @@ public class OddsMinds extends JFrame {
         mainPanel.repaint();
     }
 
-    
+
     // REFRESH TABLE
-    
+
     private void refreshTable() {
         try {
             tableModel.setQuery( currentQuery );
@@ -897,9 +908,9 @@ public class OddsMinds extends JFrame {
         }
     }
 
-    
+    // ==========================================
     // CUSTOMER CRUD (staff only)
-    
+    // ==========================================
     private void handleAddCustomer() {
         try {
             String firstName = JOptionPane.showInputDialog( this, "First Name:" );
@@ -970,6 +981,9 @@ public class OddsMinds extends JFrame {
         }
     }
 
+    // ==========================================
+    // CUSTOMER DELETE - cascades to child tables
+    // ==========================================
     private void handleDeleteCustomer() {
         int selectedRow = resultTable.getSelectedRow();
         if ( selectedRow < 0 ) {
@@ -980,14 +994,32 @@ public class OddsMinds extends JFrame {
         }
 
         int confirm = JOptionPane.showConfirmDialog( this,
-            "Are you sure you want to delete this customer?",
+            "Are you sure you want to delete this customer and all their related records?",
             "Confirm Delete", JOptionPane.YES_NO_OPTION );
         if ( confirm != JOptionPane.YES_OPTION ) return;
 
         try {
             int customerId = (int) resultTable.getValueAt( selectedRow, 0 );
+
+            // delete in order: aml_verifications -> settlements -> bets -> customer
+            // must remove child records before parent due to foreign key constraints
+            PreparedStatement deleteAml = connection.prepareStatement(
+                "DELETE FROM aml_verifications WHERE customer_id = ?" );
+            deleteAml.setInt( 1, customerId );
+            deleteAml.executeUpdate();
+
+            PreparedStatement deleteSettlements = connection.prepareStatement(
+                "DELETE FROM settlements WHERE bet_id IN (SELECT bet_id FROM bets WHERE customer_id = ?)" );
+            deleteSettlements.setInt( 1, customerId );
+            deleteSettlements.executeUpdate();
+
+            PreparedStatement deleteBets = connection.prepareStatement(
+                "DELETE FROM bets WHERE customer_id = ?" );
+            deleteBets.setInt( 1, customerId );
+            deleteBets.executeUpdate();
+
             CustomerCRUD.deleteCustomer( connection, customerId );
-            JOptionPane.showMessageDialog( this, "Customer deleted." );
+            JOptionPane.showMessageDialog( this, "Customer and all related records deleted." );
             refreshTable();
         }
         catch ( SQLException sqlException ) {
@@ -996,9 +1028,81 @@ public class OddsMinds extends JFrame {
         }
     }
 
-    
-    // BET DELETE (staff only - bets placed from customer screen)
-    
+    // ==========================================
+    // BET UPDATE (staff only)
+    // ==========================================
+    private void handleUpdateBet() {
+        int selectedRow = resultTable.getSelectedRow();
+        if ( selectedRow < 0 ) {
+            JOptionPane.showMessageDialog( this,
+                "Please select a bet to update.",
+                "No row selected", JOptionPane.WARNING_MESSAGE );
+            return;
+        }
+
+        try {
+            int betId = (int) resultTable.getValueAt( selectedRow, 0 );
+
+            // sport dropdown
+            String[] sports = { "Football", "Horse Racing", "GAA", "Golf", "Tennis", "Boxing", "Other" };
+            String currentSport = resultTable.getValueAt( selectedRow, 2 ).toString();
+            String sport = (String) JOptionPane.showInputDialog( this,
+                "Sport:", "Update Bet",
+                JOptionPane.QUESTION_MESSAGE, null, sports, currentSport );
+            if ( sport == null ) return;
+
+            String eventName = JOptionPane.showInputDialog( this, "Event:",
+                resultTable.getValueAt( selectedRow, 3 ) );
+            if ( eventName == null ) return;
+
+            String selection = JOptionPane.showInputDialog( this, "Selection:",
+                resultTable.getValueAt( selectedRow, 4 ) );
+            if ( selection == null ) return;
+
+            String odds = JOptionPane.showInputDialog( this, "Odds (e.g. 5/1):",
+                resultTable.getValueAt( selectedRow, 5 ) );
+            if ( odds == null ) return;
+            if ( !BetCRUD.isValidOdds( odds ) ) {
+                JOptionPane.showMessageDialog( this,
+                    "Invalid odds format. Use fractional odds like 5/1, 6/4, 1/1",
+                    "Input error", JOptionPane.ERROR_MESSAGE );
+                return;
+            }
+
+            String stakeStr = JOptionPane.showInputDialog( this, "Stake:",
+                resultTable.getValueAt( selectedRow, 6 ) );
+            if ( stakeStr == null ) return;
+            double stake = Double.parseDouble( stakeStr.toString() );
+
+            double potentialPayout = BetCRUD.calculatePayout( odds, stake );
+
+            // status dropdown - let staff update the bet status
+            String[] statuses = { "Open", "Won", "Lost", "Void" };
+            String currentStatus = resultTable.getValueAt( selectedRow, 8 ).toString();
+            String status = (String) JOptionPane.showInputDialog( this,
+                "Status:", "Update Bet Status",
+                JOptionPane.QUESTION_MESSAGE, null, statuses, currentStatus );
+            if ( status == null ) return;
+
+            BetCRUD.updateBet( connection, betId, sport, eventName,
+                selection, odds, stake, potentialPayout, status );
+            JOptionPane.showMessageDialog( this, "Bet updated successfully." );
+            refreshTable();
+        }
+        catch ( NumberFormatException numberException ) {
+            JOptionPane.showMessageDialog( this,
+                "Please enter a valid number for Stake.",
+                "Input error", JOptionPane.ERROR_MESSAGE );
+        }
+        catch ( SQLException sqlException ) {
+            JOptionPane.showMessageDialog( this, sqlException.getMessage(),
+                "Database error", JOptionPane.ERROR_MESSAGE );
+        }
+    }
+
+    // ==========================================
+    // BET DELETE - cascades to child tables
+    // ==========================================
     private void handleDeleteBet() {
         int selectedRow = resultTable.getSelectedRow();
         if ( selectedRow < 0 ) {
@@ -1009,14 +1113,26 @@ public class OddsMinds extends JFrame {
         }
 
         int confirm = JOptionPane.showConfirmDialog( this,
-            "Are you sure you want to delete this bet?",
+            "Are you sure you want to delete this bet and its related records?",
             "Confirm Delete", JOptionPane.YES_NO_OPTION );
         if ( confirm != JOptionPane.YES_OPTION ) return;
 
         try {
             int betId = (int) resultTable.getValueAt( selectedRow, 0 );
+
+            // delete child records first: aml_verifications and settlements
+            PreparedStatement deleteAml = connection.prepareStatement(
+                "DELETE FROM aml_verifications WHERE triggering_bet_id = ?" );
+            deleteAml.setInt( 1, betId );
+            deleteAml.executeUpdate();
+
+            PreparedStatement deleteSettlement = connection.prepareStatement(
+                "DELETE FROM settlements WHERE bet_id = ?" );
+            deleteSettlement.setInt( 1, betId );
+            deleteSettlement.executeUpdate();
+
             BetCRUD.deleteBet( connection, betId );
-            JOptionPane.showMessageDialog( this, "Bet deleted." );
+            JOptionPane.showMessageDialog( this, "Bet and related records deleted." );
             refreshTable();
         }
         catch ( SQLException sqlException ) {
@@ -1025,9 +1141,9 @@ public class OddsMinds extends JFrame {
         }
     }
 
-    
+    // ==========================================
     // SETTLEMENT DELETE (staff only)
-    
+    // ==========================================
     private void handleDeleteSettlement() {
         int selectedRow = resultTable.getSelectedRow();
         if ( selectedRow < 0 ) {
@@ -1054,10 +1170,10 @@ public class OddsMinds extends JFrame {
         }
     }
 
-    
+    // ==========================================
     // AML - VERIFY CUSTOMER (from AML Flags screen)
     // staff can verify a customer who was previously unverified
-    
+    // ==========================================
     private void handleVerifyCustomer() {
         int selectedRow = resultTable.getSelectedRow();
         if ( selectedRow < 0 ) {
@@ -1112,9 +1228,9 @@ public class OddsMinds extends JFrame {
         }
     }
 
-    
+    // ==========================================
     // AML - REMOVE VERIFICATION (if entered in error)
-    
+    // ==========================================
     private void handleRemoveVerification() {
         int selectedRow = resultTable.getSelectedRow();
         if ( selectedRow < 0 ) {
@@ -1167,9 +1283,9 @@ public class OddsMinds extends JFrame {
         }
     }
 
-    
+    // ==========================================
     // SETTLE OPEN BET - shows JList of open bets
-    
+    // ==========================================
     private void handleSettleOpenBet() {
         try {
             // query all open bets

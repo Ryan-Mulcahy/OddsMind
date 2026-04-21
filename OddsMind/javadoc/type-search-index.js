@@ -1,0 +1,1 @@
+typeSearchIndex = [{"l":"All Classes and Interfaces","u":"allclasses-index.html"},{"p":"<Unnamed>","l":"AmlCRUD"},{"p":"<Unnamed>","l":"BetCRUD"},{"p":"<Unnamed>","l":"CustomerCRUD"},{"p":"<Unnamed>","l":"myJDBC"},{"p":"<Unnamed>","l":"OddsMinds"},{"p":"<Unnamed>","l":"ResultSetTableModel"},{"p":"<Unnamed>","l":"SettlementCRUD"}];updateSearchResults();
